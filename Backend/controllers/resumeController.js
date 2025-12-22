@@ -1,10 +1,7 @@
 // controllers/resumeController.js
-const pdfParse = require('pdf-parse');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+import { GoogleGenerativeAI } from "@google/generative-ai";
+// Use dynamic import of 'pdf-parse' in the handler to support both CJS and ESM exports.
 
-// 1. Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 const analyzeResume = async (req, res) => {
     try {
@@ -12,50 +9,54 @@ const analyzeResume = async (req, res) => {
             return res.status(400).json({ error: "Resume file and Job Description are required" });
         }
 
-        // 2. Extract Text from PDF
-        const pdfData = await pdfParse(req.file.buffer);
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({
+                error: "GEMINI_API_KEY is not set. Set it in Backend/.env (GEMINI_API_KEY=YOUR_KEY) or as an environment variable and restart the server."
+            });
+        }
+
+        // Use `PDFParse` class from pdf-parse v2 with the buffer as `data`.
+        const { PDFParse } = await import('pdf-parse');
+        const parser = new PDFParse({ data: req.file.buffer });
+        const pdfData = await parser.getText();
         const resumeText = pdfData.text;
 
-        // 3. Prepare the Prompt
-        // We must be very strict with Gemini to get JSON back
+        // Initialize Gemini (Ensure your .env is loaded!)
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
         const prompt = `
             You are an expert Resume ATS Scanner. Analyze this resume against the job description.
+            RESUME TEXT: ${resumeText}
+            JOB DESCRIPTION: ${req.body.jobDescription}
             
-            RESUME TEXT: 
-            ${resumeText}
-            
-            JOB DESCRIPTION: 
-            ${req.body.jobDescription}
-            
-            Output strictly in this JSON format (no markdown code blocks, just raw JSON):
+            Output strictly in this JSON format:
             {
                 "score": 0,
-                "matchSummary": "A short summary...",
-                "missingKeywords": ["skill1", "skill2"],
-                "strengths": ["strength1", "strength2"],
-                "weaknesses": ["weakness1", "weakness2"]
+                "matchSummary": "summary...",
+                "missingKeywords": [],
+                "strengths": [],
+                "weaknesses": []
             }
         `;
 
-        // 4. Send to Gemini
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        
-        // 5. Clean and Parse Response
-        let text = response.text();
-        
-        // Sometimes Gemini wraps JSON in markdown like \`\`\`json ... \`\`\`
-        // We need to strip that out to prevent crashing
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        let text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
 
-        const jsonResponse = JSON.parse(text);
-        
-        res.json(jsonResponse);
+        res.json(JSON.parse(text));
 
     } catch (error) {
-        console.error("AI Error:", error);
-        res.status(500).json({ error: "Failed to analyze resume" });
+        console.error("Error:", error);
+        res.status(500).json({ error: "Failed to analyze resume", details: error.message });
     }
 };
 
-module.exports = { analyzeResume };
+const healthCheck = (req, res) => {
+    res.json({
+        geminiApiKeySet: !!process.env.GEMINI_API_KEY
+    });
+};
+
+// Export the controller
+export { analyzeResume, healthCheck }; 

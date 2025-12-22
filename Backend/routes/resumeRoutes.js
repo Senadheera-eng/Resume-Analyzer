@@ -1,6 +1,9 @@
+// routes/resumeRoutes.js
 import express from 'express';
 import multer from 'multer';
-import { analyzeResume, healthCheck } from '../controllers/resumeController.js'; // Note .js
+
+// --- FIX: Removed 'verifyKey' from the import list ---
+import { analyzeResume, healthCheck } from '../controllers/resumeController.js'; 
 
 const router = express.Router();
 
@@ -11,4 +14,4 @@ const upload = multer({ storage: storage });
 router.post('/analyze', upload.single('resume'), analyzeResume);
 router.get('/health', healthCheck);
 
-export default router; 
+export default router;

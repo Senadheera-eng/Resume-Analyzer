@@ -1,29 +1,32 @@
 // controllers/resumeController.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
-// Use dynamic import of 'pdf-parse' in the handler to support both CJS and ESM exports.
+import { createRequire } from 'module';
 
+// 1. Load the stable library (v1.1.1)
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
-const analyzeResume = async (req, res) => {
+export const analyzeResume = async (req, res) => {
     try {
+        console.log("1. Request received.");
+
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ error: "Server Error: API Key missing" });
+        }
+
         if (!req.file || !req.body.jobDescription) {
             return res.status(400).json({ error: "Resume file and Job Description are required" });
         }
 
-        if (!process.env.GEMINI_API_KEY) {
-            return res.status(500).json({
-                error: "GEMINI_API_KEY is not set. Set it in Backend/.env (GEMINI_API_KEY=YOUR_KEY) or as an environment variable and restart the server."
-            });
-        }
-
-        // Use `PDFParse` class from pdf-parse v2 with the buffer as `data`.
-        const { PDFParse } = await import('pdf-parse');
-        const parser = new PDFParse({ data: req.file.buffer });
-        const pdfData = await parser.getText();
+        // 2. Extract Text (Works perfectly with v1.1.1)
+        const pdfData = await pdfParse(req.file.buffer);
         const resumeText = pdfData.text;
+        
+        console.log("2. PDF Text Extracted. Length:", resumeText.length);
 
-        // Initialize Gemini (Ensure your .env is loaded!)
+        // 3. Initialize Gemini
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
         const prompt = `
             You are an expert Resume ATS Scanner. Analyze this resume against the job description.
@@ -44,19 +47,15 @@ const analyzeResume = async (req, res) => {
         const response = await result.response;
         let text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
 
+        console.log("3. AI Response received.");
         res.json(JSON.parse(text));
 
     } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({ error: "Failed to analyze resume", details: error.message });
+        console.error("ERROR:", error);
+        res.status(500).json({ error: "Analysis Failed", details: error.message });
     }
 };
 
-const healthCheck = (req, res) => {
-    res.json({
-        geminiApiKeySet: !!process.env.GEMINI_API_KEY
-    });
+export const healthCheck = (req, res) => {
+    res.json({ status: "OK" });
 };
-
-// Export the controller
-export { analyzeResume, healthCheck }; 

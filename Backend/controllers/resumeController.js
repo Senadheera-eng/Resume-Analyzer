@@ -30,7 +30,7 @@ export const analyzeResume = async (req, res) => {
 
         // 3. Google AI
         const genAI = new GoogleGenerativeAI(key); // Pass the validated key variable
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
         const prompt = `
             You are an expert Resume ATS Scanner. Analyze this resume against the job description.

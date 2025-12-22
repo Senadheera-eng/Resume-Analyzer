@@ -2,7 +2,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createRequire } from 'module';
 
-// 1. Load the stable library (v1.1.1)
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 
@@ -10,23 +9,28 @@ export const analyzeResume = async (req, res) => {
     try {
         console.log("1. Request received.");
 
-        if (!process.env.GEMINI_API_KEY) {
-            return res.status(500).json({ error: "Server Error: API Key missing" });
+        // --- DEBUG KEY START ---
+        const key = process.env.GEMINI_API_KEY;
+        if (!key) {
+            console.error("CRITICAL ERROR: 'process.env.GEMINI_API_KEY' is UNDEFINED.");
+            console.error("Did you forget to create the .env file? Or is it empty?");
+            return res.status(500).json({ error: "Server Error: API Key is missing on Server" });
         }
+        console.log("DEBUG: Key status ->", key.startsWith("AIza") ? "Valid Format" : "Invalid Format");
+        // --- DEBUG KEY END ---
 
         if (!req.file || !req.body.jobDescription) {
             return res.status(400).json({ error: "Resume file and Job Description are required" });
         }
 
-        // 2. Extract Text (Works perfectly with v1.1.1)
+        // 2. Parse PDF
         const pdfData = await pdfParse(req.file.buffer);
         const resumeText = pdfData.text;
-        
         console.log("2. PDF Text Extracted. Length:", resumeText.length);
 
-        // 3. Initialize Gemini
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        // 3. Google AI
+        const genAI = new GoogleGenerativeAI(key); // Pass the validated key variable
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         const prompt = `
             You are an expert Resume ATS Scanner. Analyze this resume against the job description.

@@ -1,5 +1,8 @@
 // src/components/ResumeAnalyzer.jsx
 import React, { useState } from 'react';
+import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Award } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import './ResumeAnalyzer.css';
 
 const ResumeAnalyzer = () => {
     const [file, setFile] = useState(null);
@@ -9,7 +12,9 @@ const ResumeAnalyzer = () => {
     const [error, setError] = useState(null);
 
     const handleFileChange = (e) => {
-        setFile(e.target.files[0]);
+        if (e.target.files && e.target.files[0]) {
+            setFile(e.target.files[0]);
+        }
     };
 
     const handleAnalyze = async () => {
@@ -27,7 +32,6 @@ const ResumeAnalyzer = () => {
         formData.append('jobDescription', jobDescription);
 
         try {
-            // Ensure this port matches your backend (5000)
             const response = await fetch('http://localhost:5000/api/resume/analyze', {
                 method: 'POST',
                 body: formData,
@@ -48,81 +52,145 @@ const ResumeAnalyzer = () => {
     };
 
     return (
-        <div style={styles.container}>
-            <div style={styles.card}>
-                <h2 style={styles.title}>🚀 Resume AI Analyzer</h2>
-                
-                <div style={styles.inputGroup}>
-                    <label style={styles.label}>1. Upload Resume (PDF)</label>
-                    <input type="file" accept=".pdf" onChange={handleFileChange} style={styles.input} />
+        <div className="container">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card"
+            >
+                <div className="header">
+                    <h1 className="title">AI Resume Analyzer</h1>
+                    <p className="subtitle">Optimize your resume for ATS with Gemini 2.0 AI</p>
                 </div>
 
-                <div style={styles.inputGroup}>
-                    <label style={styles.label}>2. Job Description</label>
-                    <textarea 
-                        rows="5"
-                        placeholder="Paste the job description here..."
-                        value={jobDescription}
-                        onChange={(e) => setJobDescription(e.target.value)}
-                        style={styles.textarea}
-                    />
+                {/* Input Section */}
+                <div className="upload-section">
+                    <label htmlFor="file-upload" className="upload-zone">
+                        <Upload size={48} color="#4f46e5" style={{ marginBottom: '15px' }} />
+                        <h3 style={{ margin: 0 }}>
+                            {file ? "File Selected" : "Click to Upload Resume (PDF)"}
+                        </h3>
+                        {file && <p className="file-info">{file.name}</p>}
+                        <input 
+                            id="file-upload" 
+                            type="file" 
+                            accept=".pdf" 
+                            onChange={handleFileChange} 
+                            style={{ display: 'none' }} 
+                        />
+                    </label>
+
+                    <div className="input-group">
+                        <label className="label">Job Description</label>
+                        <textarea 
+                            className="textarea"
+                            rows="5"
+                            placeholder="Paste the job description here to compare..."
+                            value={jobDescription}
+                            onChange={(e) => setJobDescription(e.target.value)}
+                        />
+                    </div>
+
+                    <button 
+                        className="analyze-btn"
+                        onClick={handleAnalyze} 
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <>
+                                <div className="spinner"></div> Analyzing...
+                            </>
+                        ) : (
+                            <>
+                                <Award size={20} /> Analyze Match
+                            </>
+                        )}
+                    </button>
+
+                    {error && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            style={{ color: '#ef4444', marginTop: '15px', textAlign: 'center', background: '#fee2e2', padding: '10px', borderRadius: '8px' }}
+                        >
+                            ⚠️ Error: {error}
+                        </motion.div>
+                    )}
                 </div>
-
-                <button 
-                    onClick={handleAnalyze} 
-                    disabled={loading} 
-                    style={loading ? styles.buttonDisabled : styles.button}
-                >
-                    {loading ? "Analyzing..." : "Analyze Resume"}
-                </button>
-
-                {error && <div style={styles.error}>❌ Error: {error}</div>}
-            </div>
+            </motion.div>
 
             {/* Results Section */}
-            {result && (
-                <div style={styles.resultCard}>
-                    <div style={styles.scoreBadge}>Match Score: {result.score}%</div>
-                    
-                    <p style={styles.summary}><strong>Summary:</strong> {result.matchSummary}</p>
-                    
-                    <div style={styles.grid}>
-                        <div style={styles.column}>
-                            <h4 style={{color: 'green'}}>✅ Strengths</h4>
-                            <ul>
-                                {result.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
+            <AnimatePresence>
+                {result && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="results-container"
+                    >
+                        <div className="score-banner">
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Match Analysis</h2>
+                                <p style={{ margin: '5px 0 0 0', opacity: 0.8 }}>Based on keywords & skills</p>
+                            </div>
+                            <div className="score-circle" style={{ 
+                                borderColor: result.score >= 70 ? '#10b981' : '#f59e0b',
+                                color: result.score >= 70 ? 'white' : 'white'
+                            }}>
+                                {result.score}%
+                            </div>
                         </div>
-                        <div style={styles.column}>
-                            <h4 style={{color: 'red'}}>⚠️ Weaknesses</h4>
-                            <ul>
-                                {result.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
-                            </ul>
+
+                        <div className="glass-card" style={{ padding: '25px' }}>
+                            <div className="summary-box">
+                                <strong>📝 Executive Summary:</strong> {result.matchSummary}
+                            </div>
+
+                            <div className="grid-cols">
+                                {/* Strengths Column */}
+                                <div className="card-column">
+                                    <div className="column-header text-success">
+                                        <CheckCircle size={24} /> Strengths
+                                    </div>
+                                    {result.strengths && result.strengths.length > 0 ? (
+                                        <ul>
+                                            {result.strengths.map((item, index) => (
+                                                <li key={index} className="list-item">
+                                                    <CheckCircle size={16} color="#10b981" style={{minWidth: '16px', marginTop: '4px'}} />
+                                                    {item}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p style={{color: '#6b7280', fontStyle: 'italic'}}>No specific strengths detected.</p>
+                                    )}
+                                </div>
+
+                                {/* Weaknesses Column */}
+                                <div className="card-column">
+                                    <div className="column-header text-danger">
+                                        <AlertTriangle size={24} /> Missing / Weakness
+                                    </div>
+                                    {result.weaknesses && result.weaknesses.length > 0 ? (
+                                        <ul>
+                                            {result.weaknesses.map((item, index) => (
+                                                <li key={index} className="list-item">
+                                                    <AlertTriangle size={16} color="#ef4444" style={{minWidth: '16px', marginTop: '4px'}} />
+                                                    {item}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p style={{color: '#6b7280', fontStyle: 'italic'}}>Great match! No major weaknesses found.</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
-};
-
-// Simple inline styles
-const styles = {
-    container: { fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '800px', margin: '0 auto', backgroundColor: '#f4f4f9', minHeight: '100vh' },
-    card: { backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
-    title: { textAlign: 'center', color: '#333' },
-    inputGroup: { marginBottom: '20px' },
-    label: { display: 'block', fontWeight: 'bold', marginBottom: '8px', color: '#555' },
-    input: { padding: '10px', width: '100%' },
-    textarea: { width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '14px' },
-    button: { width: '100%', padding: '12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' },
-    buttonDisabled: { width: '100%', padding: '12px', backgroundColor: '#ccc', color: 'white', border: 'none', borderRadius: '5px', fontSize: '16px' },
-    error: { marginTop: '15px', padding: '10px', backgroundColor: '#ffe6e6', color: '#d63031', borderRadius: '5px', textAlign: 'center' },
-    resultCard: { marginTop: '25px', backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
-    scoreBadge: { backgroundColor: '#28a745', color: 'white', padding: '5px 15px', borderRadius: '20px', display: 'inline-block', fontWeight: 'bold', marginBottom: '15px' },
-    summary: { lineHeight: '1.6', color: '#444' },
-    grid: { display: 'flex', gap: '20px', marginTop: '20px', flexDirection: 'row' },
-    column: { flex: 1, backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px' }
 };
 
 export default ResumeAnalyzer;

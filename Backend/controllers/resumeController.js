@@ -1,61 +1,65 @@
 // controllers/resumeController.js
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// 1. Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-const analyzeResume = async (req, res) => {
+export const analyzeResume = async (req, res) => {
     try {
+        console.log("1. Request received.");
+
+        // Check Key
+        const key = process.env.GEMINI_API_KEY;
+        if (!key) {
+            return res.status(500).json({ error: "API Key missing" });
+        }
+
         if (!req.file || !req.body.jobDescription) {
             return res.status(400).json({ error: "Resume file and Job Description are required" });
         }
 
-        // 2. Extract Text from PDF
+        // 2. Parse PDF (This part is working perfectly now!)
         const pdfData = await pdfParse(req.file.buffer);
         const resumeText = pdfData.text;
+        console.log("2. PDF Text Extracted. Length:", resumeText.length);
 
-        // 3. Prepare the Prompt
-        // We must be very strict with Gemini to get JSON back
+        // 3. Google AI
+        const genAI = new GoogleGenerativeAI(key);
+        
+        // --- FIX: Use the alias found in your own script ---
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
         const prompt = `
             You are an expert Resume ATS Scanner. Analyze this resume against the job description.
+            RESUME TEXT: ${resumeText}
+            JOB DESCRIPTION: ${req.body.jobDescription}
             
-            RESUME TEXT: 
-            ${resumeText}
-            
-            JOB DESCRIPTION: 
-            ${req.body.jobDescription}
-            
-            Output strictly in this JSON format (no markdown code blocks, just raw JSON):
+            Output strictly in this JSON format:
             {
                 "score": 0,
-                "matchSummary": "A short summary...",
-                "missingKeywords": ["skill1", "skill2"],
-                "strengths": ["strength1", "strength2"],
-                "weaknesses": ["weakness1", "weakness2"]
+                "matchSummary": "summary...",
+                "missingKeywords": [],
+                "strengths": [],
+                "weaknesses": []
             }
         `;
 
-        // 4. Send to Gemini
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        
-        // 5. Clean and Parse Response
-        let text = response.text();
-        
-        // Sometimes Gemini wraps JSON in markdown like \`\`\`json ... \`\`\`
-        // We need to strip that out to prevent crashing
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        let text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
 
-        const jsonResponse = JSON.parse(text);
-        
-        res.json(jsonResponse);
+        console.log("3. AI Response received.");
+        res.json(JSON.parse(text));
 
     } catch (error) {
-        console.error("AI Error:", error);
-        res.status(500).json({ error: "Failed to analyze resume" });
+        console.error("ERROR:", error);
+        
+        // If it's still a quota error, we will know exactly why
+        res.status(500).json({ error: "Analysis Failed", details: error.message });
     }
 };
 
-module.exports = { analyzeResume };
+export const healthCheck = (req, res) => {
+    res.json({ status: "OK" });
+};

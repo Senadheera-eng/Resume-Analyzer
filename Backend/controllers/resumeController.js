@@ -9,28 +9,26 @@ export const analyzeResume = async (req, res) => {
     try {
         console.log("1. Request received.");
 
-        // --- DEBUG KEY START ---
+        // Check Key
         const key = process.env.GEMINI_API_KEY;
         if (!key) {
-            console.error("CRITICAL ERROR: 'process.env.GEMINI_API_KEY' is UNDEFINED.");
-            console.error("Did you forget to create the .env file? Or is it empty?");
-            return res.status(500).json({ error: "Server Error: API Key is missing on Server" });
+            return res.status(500).json({ error: "API Key missing" });
         }
-        console.log("DEBUG: Key status ->", key.startsWith("AIza") ? "Valid Format" : "Invalid Format");
-        // --- DEBUG KEY END ---
 
         if (!req.file || !req.body.jobDescription) {
             return res.status(400).json({ error: "Resume file and Job Description are required" });
         }
 
-        // 2. Parse PDF
+        // 2. Parse PDF (This part is working perfectly now!)
         const pdfData = await pdfParse(req.file.buffer);
         const resumeText = pdfData.text;
         console.log("2. PDF Text Extracted. Length:", resumeText.length);
 
         // 3. Google AI
-        const genAI = new GoogleGenerativeAI(key); // Pass the validated key variable
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const genAI = new GoogleGenerativeAI(key);
+        
+        // --- FIX: Use the alias found in your own script ---
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
         const prompt = `
             You are an expert Resume ATS Scanner. Analyze this resume against the job description.
@@ -56,6 +54,8 @@ export const analyzeResume = async (req, res) => {
 
     } catch (error) {
         console.error("ERROR:", error);
+        
+        // If it's still a quota error, we will know exactly why
         res.status(500).json({ error: "Analysis Failed", details: error.message });
     }
 };

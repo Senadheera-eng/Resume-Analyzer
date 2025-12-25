@@ -3,7 +3,7 @@ import ResumeAnalyzer from './components/ResumeAnalyzer';
 
 function App() {
   return (
-    <div>
+    <div className="min-h-screen">
       <ResumeAnalyzer />
     </div>
   );
